@@ -1,0 +1,108 @@
+{
+    "family": "greeter_server_mesh",
+    "networkMode": "awsvpc",
+    "executionRoleArn": "arn:aws:iam::215431715977:role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::215431715977:role/AppMeshEnvoyTaskRole",
+    "cpu": "256",
+    "memory": "512",
+    "containerDefinitions": [
+        {
+            "name": "greeter_server",
+            "image": "buzzsurfr/greeter_server:blog",
+            "memoryReservation": 128,
+            "portMappings": [
+                {
+                    "hostPort": 50051,
+                    "protocol": "tcp",
+                    "containerPort": 50051
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/greeter_server",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "dependsOn": [
+                {
+                    "containerName": "envoy",
+                    "condition": "HEALTHY"
+                }
+            ]
+        },
+        {
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/greeter_server",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "environment": [
+                {
+                    "name": "APPMESH_VIRTUAL_NODE_NAME",
+                    "value": "mesh/greeter/virtualNode/greeter-v1"
+                }
+            ],
+            "memory": 500,
+            "image": "840364872350.dkr.ecr.us-west-2.amazonaws.com/aws-appmesh-envoy:v1.12.1.0-prod",
+            "healthCheck": {
+                "retries": 3,
+                "command": [
+                    "CMD-SHELL",
+                    "curl -s http://localhost:9901/server_info | grep state | grep -q LIVE"
+                ],
+                "timeout": 2,
+                "interval": 5,
+                "startPeriod": 10
+            },
+            "essential": true,
+            "user": "1337",
+            "name": "envoy"
+        }
+    ],
+    "compatibilities": [
+        "EC2",
+        "FARGATE"
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "proxyConfiguration": {
+        "type": "APPMESH",
+        "containerName": "envoy",
+        "properties": [
+            {
+                "name": "ProxyIngressPort",
+                "value": "15000"
+            },
+            {
+                "name": "AppPorts",
+                "value": "50051"
+            },
+            {
+                "name": "EgressIgnoredIPs",
+                "value": "169.254.170.2,169.254.169.254"
+            },
+            {
+                "name": "IgnoredGID",
+                "value": ""
+            },
+            {
+                "name": "EgressIgnoredPorts",
+                "value": ""
+            },
+            {
+                "name": "IgnoredUID",
+                "value": "1337"
+            },
+            {
+                "name": "ProxyEgressPort",
+                "value": "15001"
+            }
+        ]
+    }
+}
